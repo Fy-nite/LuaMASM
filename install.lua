@@ -2,7 +2,6 @@
 -- LuaASM Installer for ComputerCraft
 -- Downloads files from a Forgejo Git server and sets up the LuaASM environment.
 
-local http = require("http")
 local fs = require("fs")
 
 -- Configuration
@@ -11,11 +10,12 @@ local REPO = "charlie-san/LuaASM"
 local BRANCH = "main"
 local FILES = {
     "interp.lua",
-    "debug.lua",
+    "debugger.lua",
     "tui.lua",
     "main.masm",
     "root/stdio/print.masm",
     "README.md",
+    "mni-instructions.md",
     "v2instructions.md"
 }
 
