@@ -2,7 +2,6 @@
 -- LuaASM Installer for ComputerCraft
 -- Downloads files from a Forgejo Git server and sets up the LuaASM environment.
 
-local fs = require("fs")
 
 -- Configuration
 local GIT_SERVER = "https://git.carsoncoder.com"
