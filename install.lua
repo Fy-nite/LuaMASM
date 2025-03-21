@@ -7,7 +7,7 @@ local fs = require("fs")
 
 -- Configuration
 local GIT_SERVER = "https://git.carsoncoder.com"
-local REPO = "charlie-san/luaasm"
+local REPO = "charlie-san/LuaASM"
 local BRANCH = "main"
 local FILES = {
     "interp.lua",
