@@ -7,18 +7,7 @@ function fs.exists(path)
     return io.open(path, "r") ~= nil
 end
 local bit32 = {}
-function bit32.band(a, b)
-    return a & b
-end
-function bit32.bor(a, b)
-    return a | b
-end
-function bit32.bxor(a, b)
-    return a ~ b
-end
-function bit32.bnot(a)
-    return ~a
-end
+
 local RegisterMachine = {}
 RegisterMachine.__index = RegisterMachine
 
