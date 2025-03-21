@@ -70,8 +70,7 @@ function RegisterMachine.new(numRegisters)
         XOR = true, NOT = true, SHL = true, SHR = true,
         NEG = true, RET = true, STRING = true, LBL = true,
         MOVADDR = true, MOVTO = true, ENTER = true, LEAVE = true,
-        FILL = true, COPY = true, CMP_MEM = true, OUT = true,
-        MNI = true
+        FILL = true, COPY = true, CMP_MEM = true, OUT = true
     }
     
     return self
@@ -467,192 +466,192 @@ function RegisterMachine:executeInstruction(line)
         self.RIP = self.RIP + 1
         return true
     end
-ion directly
-    -- Handle the DB directiven
+
+
+    if op == "MNI" then
+        local class, name = string.match(parts[2], "^(%w+)%.(%w+)$")
+        if class and name and self.functionTable[class] and self.functionTable[class][name] then
+            self.functionTable[class][name](self, table.unpack(parts, 3))
+        else
+            error("MNI function " .. parts[2] .. " not found")
+        end
+        self.RIP = self.RIP + 1
+        return true
+    end
+
+    -- Handle the DB directive
     if op == "DB" then
-        local address = tonumber(string.sub(parts[2], 2)) or self[parts[2]]nd self.functionTable[class] and self.functionTable[class][name] then
+        local address = tonumber(string.sub(parts[2], 2)) or self[parts[2]]
         if not address then
-            error("Invalid memory address for DB: " .. tostring(parts[2]))e
-        end            error("MNI function " .. parts[2] .. " not found")
+            error("Invalid memory address for DB: " .. tostring(parts[2]))
+        end
 
         local data = parts[3]
         if string.sub(data, 1, 1) == '"' and string.sub(data, -1) == '"' then
             data = string.sub(data, 2, -2) -- Remove quotes
             for i = 1, #data do
-                self.memory[address + i - 1] = string.byte(data, i)he DB directive
+                self.memory[address + i - 1] = string.byte(data, i)
             end
-            self.memory[address + #data] = 0 -- Null-terminate the stringl address = tonumber(string.sub(parts[2], 2)) or self[parts[2]]
+            self.memory[address + #data] = 0 -- Null-terminate the string
         else
-            error("Invalid data format for DB: " .. tostring(data)) error("Invalid memory address for DB: " .. tostring(parts[2]))
-        end        end
+            error("Invalid data format for DB: " .. tostring(data))
+        end
 
-        self.RIP = self.RIP + 1= parts[3]
-        return true if string.sub(data, 1, 1) == '"' and string.sub(data, -1) == '"' then
-    end            data = string.sub(data, 2, -2) -- Remove quotes
-data do
-    if self.ops[op] then - 1] = string.byte(data, i)
+        self.RIP = self.RIP + 1
+        return true
+    end
+
+    if self.ops[op] then
         local method = string.lower(op)
-        if self[method] thenerminate the string
-            self[method](self, table.unpack(parts, 2))e
-        end     error("Invalid data format for DB: " .. tostring(data))
-    end    end
+        if self[method] then
+            self[method](self, table.unpack(parts, 2))
+        end
+    end
     
     if op ~= "JMP" and op ~= "RET" then
-        self.RIP = self.RIP + 1 return true
-    endend
+        self.RIP = self.RIP + 1
+    end
     
-    return true if self.ops[op] then
-end        local method = string.lower(op)
+    return true
+end
 
-function RegisterMachine:registerMNI(class, name, func)ck(parts, 2))
+function RegisterMachine:registerMNI(class, name, func)
     if not self.functionTable[class] then
         self.functionTable[class] = {}
     end
-    self.functionTable[class][name] = func if op ~= "JMP" and op ~= "RET" then
-end        self.RIP = self.RIP + 1
+    self.functionTable[class][name] = func
+end
 
 -- Example: Registering MNI functions
 local function registerMNIExamples(machine)
     -- Math operations
     machine:registerMNI("Math", "sin", function(machine, src, dest)
-        machine[dest] = math.sin(machine[src]) RegisterMachine:registerMNI(class, name, func)
+        machine[dest] = math.sin(machine[src])
     end)
     machine:registerMNI("Math", "cos", function(machine, src, dest)
         machine[dest] = math.cos(machine[src])
-    end)    self.functionTable[class][name] = func
+    end)
 
     -- Memory management
     machine:registerMNI("Memory", "allocate", function(machine, size, dest)
-        local address = #machine.memory + 1machine)
+        local address = #machine.memory + 1
         for i = 1, machine[size] do
-            table.insert(machine.memory, 0):registerMNI("Math", "sin", function(machine, src, dest)
-        endn(machine[src])
+            table.insert(machine.memory, 0)
+        end
         machine[dest] = address
     end)
     machine:registerMNI("Memory", "free", function(machine, address)
         -- No-op for simplicity (real implementation would manage memory blocks)
     end)
-nagement
-    -- Debuggingt)
-    machine:registerMNI("Debug", "dumpRegisters", function(machine, dest) #machine.memory + 1
+
+    -- Debugging
+    machine:registerMNI("Debug", "dumpRegisters", function(machine, dest)
         local dump = {}
         for reg, value in pairs(machine) do
             if type(value) == "number" then
-                table.insert(dump, string.format("%s: %d", reg, value))[dest] = address
+                table.insert(dump, string.format("%s: %d", reg, value))
             end
-        endess)
-        machine.memory[machine[dest]] = table.concat(dump, "\n")-- No-op for simplicity (real implementation would manage memory blocks)
-    end) end)
+        end
+        machine.memory[machine[dest]] = table.concat(dump, "\n")
+    end)
 end
 
--- Call this function during initialization to register MNI examplesers", function(machine, dest)
-registerMNIExamples(RegisterMachine.new(16))        local dump = {}
+-- Call this function during initialization to register MNI examples
+registerMNIExamples(RegisterMachine.new(16))
 
 local function resolveIncludePath(rootFolder, localFolder, includePath)
-    -- Convert structured includes like "stdio.print" to "stdio/print.masm"alue))
-    local structuredPath = includePath:gsub("%.", "/") .. ".masm"            end
+    -- Convert structured includes like "stdio.print" to "stdio/print.masm"
+    local structuredPath = includePath:gsub("%.", "/") .. ".masm"
 
-    -- Check in the root folder\n")
+    -- Check in the root folder
     local rootFullPath = rootFolder .. "/" .. structuredPath
     if fs.exists(rootFullPath) then
         return rootFullPath
-    end-- Call this function during initialization to register MNI examples
-ine.new(16))
-    -- Check in the local folder
-    local localFullPath = localFolder .. "/" .. includePathotFolder, localFolder, includePath)
-    if fs.exists(localFullPath) thencludes like "stdio.print" to "stdio/print.masm"
-        return localFullPathal structuredPath = includePath:gsub("%.", "/") .. ".masm"
     end
 
-    error("Include file not found: " .. includePath) local rootFullPath = rootFolder .. "/" .. structuredPath
-end    if fs.exists(rootFullPath) then
+    -- Check in the local folder
+    local localFullPath = localFolder .. "/" .. includePath
+    if fs.exists(localFullPath) then
+        return localFullPath
+    end
+
+    error("Include file not found: " .. includePath)
+end
 
 local function processIncludes(rootFolder, localFolder, code)
     local processedCode = {}
     for _, line in ipairs(code) do
-        local includePath = line:match('^#include%s+"(.-)"$')ocalFolder .. "/" .. includePath
+        local includePath = line:match('^#include%s+"(.-)"$')
         if includePath then
             local fullPath = resolveIncludePath(rootFolder, localFolder, includePath)
             local file = io.open(fullPath, "r")
             for includeLine in file:lines() do
-                table.insert(processedCode, includeLine)ude file not found: " .. includePath)
+                table.insert(processedCode, includeLine)
             end
             file:close()
-        elsecalFolder, code)
-            table.insert(processedCode, line)rocessedCode = {}
-        end _, line in ipairs(code) do
-    endh = line:match('^#include%s+"(.-)"$')
-    return processedCode     if includePath then
-end            local fullPath = resolveIncludePath(rootFolder, localFolder, includePath)
-lPath, "r")
--- Modify init() to process includesnes() do
-local function init(filename, options)sert(processedCode, includeLine)
+        else
+            table.insert(processedCode, line)
+        end
+    end
+    return processedCode
+end
+
+-- Modify init() to process includes
+local function init(filename, options)
     if not filename then
         term.write("Usage: interp <filename> [options]\n")
         term.write("Options:\n")
         term.write("  -d, --debug    Start in debug mode with TUI\n")
         term.write("  -D, --debug-cli Start in debug mode without TUI\n")
         term.write("  -s, --step     Start in step mode\n")
-        term.write("  --root=<folder> Set the root folder for structured includes\n")cessedCode
+        term.write("  --root=<folder> Set the root folder for structured includes\n")
         return
     end
-    s
+    
     if not fs.exists(filename) then
-        term.write("Error: Could not find file " .. filename .. "\n")ename then
-        return term.write("Usage: interp <filename> [options]\n")
-    end        term.write("Options:\n")
-ug mode with TUI\n")
-    -- Determine the root folder and local folderebug-cli Start in debug mode without TUI\n")
-    local rootFolder = "root"\n")
-    local localFolder = filename:match("^(.*)/") or "."> Set the root folder for structured includes\n")
+        term.write("Error: Could not find file " .. filename .. "\n")
+        return
+    end
+
+    -- Determine the root folder and local folder
+    local rootFolder = "root"
+    local localFolder = filename:match("^(.*)/") or "."
     for _, arg in ipairs(options) do
         local key, value = arg:match("^%-%-(%w+)=(.+)$")
         if key == "root" then
-            rootFolder = valuefs.exists(filename) then
-        end term.write("Error: Could not find file " .. filename .. "\n")
-    end        return
+            rootFolder = value
+        end
+    end
 
     local file = io.open(filename, "r")
-    local code = {}r and local folder
+    local code = {}
     for line in file:lines() do
-        table.insert(code, line)al localFolder = filename:match("^(.*)/") or "."
-    endn ipairs(options) do
-    file:close()        local key, value = arg:match("^%-%-(%w+)=(.+)$")
+        table.insert(code, line)
+    end
+    file:close()
 
     -- Process #include directives
-    code = processIncludes(rootFolder, localFolder, code)    end
+    code = processIncludes(rootFolder, localFolder, code)
     
     local machine = RegisterMachine.new(16)
-    pen(filename, "r")
+    
     -- Handle options
-    options = options or {}s() do
+    options = options or {}
     if options.debug then
         machine.debugMode = true
         machine.autoTUI = true
     elseif options.debugCli then
-        machine.debugMode = trueves
-        machine.autoTUI = falsee = processIncludes(rootFolder, localFolder, code)
+        machine.debugMode = true
+        machine.autoTUI = false
     end
-    if options.step thenhine.new(16)
+    if options.step then
         machine.stepMode = true
-    end-- Handle options
-    {}
-    machine:execute(code) if options.debug then
-end        machine.debugMode = true
-rue
--- Main program entry pointli then
-local function main(args)true
-    local filename = args[1]UI = false
-    local options = {
-        debug = args[2] == "-d" or args[2] == "--debug",
-        debugCli = args[2] == "-D" or args[2] == "--debug-cli",
-        step = args[2] == "-s" or args[2] == "--step"nd
-    }
-    init(filename, options) machine:execute(code)
-endend
+    end
+    
+    machine:execute(code)
+end
 
-
-main({...})-- Main program entry point
+-- Main program entry point
 local function main(args)
     local filename = args[1]
     local options = {
