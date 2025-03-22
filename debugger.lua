@@ -2,6 +2,9 @@ local term = {}
 function term.write(text)
     io.write(text)
 end
+function term.read()
+    return io.read()
+end
 local fs = {}
 function fs.exists(path)
     return io.open(path, "r") ~= nil
@@ -35,7 +38,7 @@ function Debugger.new(machine)
 end
 
 function Debugger:help()
-    print([[
+    term.write([[
 Debugger commands:
     h, help      - Show this help
     s, step      - Execute next instruction
@@ -67,46 +70,67 @@ function Debugger:printRegisters()
 end
 
 function Debugger:printMemory(start, count)
-    start = start or 0
-    count = count or 16
+    start = tonumber(start) or 0
+    count = tonumber(count) or 16
     term.write("\nMemory dump:\n")
     for i = start, start + count - 1 do
         if i % 4 == 0 then term.write("\n") end
-        term.write(string.format("%04d: %-6d", i, self.machine.memory[i] or 0))
+        term.write(string.format("%04d: %-6d ", i, self.machine.memory[i] or 0))
     end
     term.write("\n")
 end
 
 function Debugger:printStack()
     term.write("\nStack dump:\n")
-    for i = self.machine.RSP, 1024 do
-        term.write(string.format("%04d: %-6d\n", i, self.machine.memory[i] or 0))
+    local stackBase = self.machine.RSP
+    local count = 16  -- Show 16 stack items
+    
+    for i = 0, count-1 do
+        local addr = stackBase - i - 1
+        if addr >= 0 then
+            term.write(string.format("%04d: %-6d\n", addr, self.machine.memory[addr] or 0))
+        end
     end
 end
 
 function Debugger:setBreakpoint(line)
-    self.breakpoints[tonumber(line)] = true
-    print("Breakpoint set at line " .. line)
+    local lineNum = tonumber(line)
+    if lineNum and lineNum > 0 and lineNum <= #self.machine.currentCode then
+        self.breakpoints[lineNum] = true
+        term.write("Breakpoint set at line " .. lineNum .. "\n")
+    else
+        term.write("Invalid line number\n")
+    end
 end
 
 function Debugger:removeBreakpoint(line)
-    self.breakpoints[tonumber(line)] = nil
-    print("Breakpoint removed from line " .. line)
+    local lineNum = tonumber(line)
+    if lineNum and self.breakpoints[lineNum] then
+        self.breakpoints[lineNum] = nil
+        term.write("Breakpoint removed from line " .. lineNum .. "\n")
+    else
+        term.write("No breakpoint at line " .. (lineNum or "nil") .. "\n")
+    end
 end
 
 function Debugger:listBreakpoints()
-    print("\nBreakpoints:")
+    term.write("\nBreakpoints:\n")
+    local found = false
     for line, _ in pairs(self.breakpoints) do
-        print("Line " .. line)
+        term.write("Line " .. line .. "\n")
+        found = true
+    end
+    if not found then
+        term.write("No breakpoints set\n")
     end
 end
 
 function Debugger:shouldBreak()
-    return self.breakpoints[self.machine.RIP]
+    return self.breakpoints[self.machine.RIP + 1]
 end
 
 function Debugger:processCommand(cmd, arg)
-    if not cmd then return end
+    if not cmd then return true end
     
     -- Trim whitespace and convert to lowercase
     cmd = cmd:match("^%s*(.-)%s*$"):lower()
@@ -115,15 +139,11 @@ function Debugger:processCommand(cmd, arg)
     -- Handle TUI commands first
     if cmd == "tui" then
         if arg == "start" and not self.tuiMode then
-            local ok, TUI = pcall(require, "./lua/tui")
+            local ok, TUI = pcall(require, "tui")
             if not ok then
-                -- Try alternate path
-                ok, TUI = pcall(require, "tui")
-                if not ok then
-                    print("Error loading TUI module: " .. tostring(TUI))
-                    print("Current package.path: " .. package.path)
-                    return true
-                end
+                term.write("Error loading TUI module: " .. tostring(TUI) .. "\n")
+                term.write("Current package.path: " .. package.path .. "\n")
+                return true
             end
             self.tui = TUI.new(self.machine, self)
             self.tuiMode = true
@@ -143,23 +163,30 @@ function Debugger:processCommand(cmd, arg)
         
     elseif cmd == "s" or cmd == "step" then
         local line = self.machine.currentCode[self.machine.RIP + 1]
-        print("Executing: " .. (line or "end of program"))
+        term.write("Executing: " .. (line or "end of program") .. "\n")
         if not self.machine:executeInstruction(line) then
-            print("Program finished")
-            return
+            term.write("Program finished\n")
+            return false
         end
-        self:printRegisters()
+        if not self.tuiMode then
+            self:printRegisters()
+        end
         
     elseif cmd == "c" or cmd == "continue" then
         while self.machine.RIP < #self.machine.currentCode do
             if self:shouldBreak() then
-                print("Breakpoint hit at line " .. self.machine.RIP)
+                term.write("Breakpoint hit at line " .. (self.machine.RIP+1) .. "\n")
                 break
             end
             local line = self.machine.currentCode[self.machine.RIP + 1]
-            if not self.machine:executeInstruction(line) then break end
+            if not self.machine:executeInstruction(line) then 
+                term.write("Program finished\n")
+                break 
+            end
         end
-        self:printRegisters()
+        if not self.tuiMode then
+            self:printRegisters()
+        end
         
     elseif cmd == "b" then
         self:setBreakpoint(arg)
@@ -172,7 +199,7 @@ function Debugger:processCommand(cmd, arg)
         
     elseif cmd == "p" then
         local value = self.machine[arg]
-        print(string.format("%s = %s", arg, value or "nil"))
+        term.write(string.format("%s = %s\n", arg, value or "nil"))
         
     elseif cmd == "pm" then
         local addr = tonumber(arg) or 0
@@ -192,21 +219,31 @@ function Debugger:processCommand(cmd, arg)
         for word in string.gmatch(arg, "%S+") do
             table.insert(args, word)
         end
-        self.machine:fill(args[1], args[2], args[3])
+        if #args >= 3 then
+            self.machine:fill(args[1], args[2], args[3])
+            term.write("Memory filled\n")
+        else
+            term.write("Usage: fill <addr> <value> <count>\n")
+        end
         
     elseif cmd == "copy" then
         local args = {}
         for word in string.gmatch(arg, "%S+") do
             table.insert(args, word)
         end
-        self.machine:copy(args[1], args[2], args[3])
+        if #args >= 3 then
+            self.machine:copy(args[2], args[1], args[3])
+            term.write("Memory copied\n")
+        else
+            term.write("Usage: copy <src> <dest> <count>\n")
+        end
         
     elseif cmd == "q" or cmd == "quit" then
-        print("Debugger terminated")
-        return
+        term.write("Debugger terminated\n")
+        return false
         
     else
-        print("Unknown command '" .. cmd .. "'. Type 'h' for help")
+        term.write("Unknown command '" .. cmd .. "'. Type 'h' for help\n")
     end
     return true
 end
@@ -214,21 +251,15 @@ end
 function Debugger:start()
     -- Auto-start TUI if machine is in debug mode and autoTUI is enabled
     if self.machine.debugMode and self.machine.autoTUI then
-        local ok, TUI = pcall(require, "./lua/tui")
-        if not ok then
-            -- Try alternate path
-            ok, TUI = pcall(require, "tui")
-        end
-        
+        local ok, TUI = pcall(require, "tui")
         if ok then
             self.tui = TUI.new(self.machine, self)
             self.tuiMode = true
             self.tui:handleInput()
             return
         else
-            print("Warning: Could not load TUI module, falling back to CLI mode")
-            print("Error: " .. tostring(TUI))
-            print("Current package.path: " .. package.path)
+            term.write("Warning: Could not load TUI module, falling back to CLI mode\n")
+            term.write("Error: " .. tostring(TUI) .. "\n")
         end
     end
 
