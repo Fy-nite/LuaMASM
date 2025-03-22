@@ -1,0 +1,24 @@
+; Example program demonstrating MNI modules
+
+lbl main
+    ; String module example
+    DB $100 "hello world!"               ; Define source string
+    MOV R1 100                           ; Source address
+    MOV R2 200                           ; Destination address
+    MNI String.toUpper R1 R2             ; Convert to uppercase
+    OUT 1 $200                           ; Print result
+    
+    ; MathExt module example
+    MOV R3 144                           ; Number to find square root of
+    MNI MathExt.sqrt R3 R4               ; Calculate square root
+    OUT 1 R4                            ; Print result (should be 12)
+    
+    ; Util module example
+    MNI Util.time R5                     ; Get current timestamp
+    DB $300 "%Y-%m-%d %H:%M:%S"          ; Date format string
+    MOV R6 300                           ; Format string address
+    MOV R7 400                           ; Destination for formatted date
+    MNI Util.formatDate R5 R6 R7         ; Format the date
+    OUT 1 $400                           ; Print formatted date/time
+    
+    HLT

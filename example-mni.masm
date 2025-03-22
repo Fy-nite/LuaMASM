@@ -19,7 +19,7 @@ lbl main
     
     ; Math example - square root
     MOV R4 144                           ; Number to find square root of
-    MNI MathExt.sqrt R4 R5               ; Calculate square root
+    MNI MathExt.sqrt R4 R5               ; Calculate square root 
     ADD R5 48                            ; Convert to ASCII (assuming single digit)
     MOV $400 R5                          ; Store as character
     MOV $401 0                           ; Null terminate
