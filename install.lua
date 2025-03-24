@@ -1,45 +1,23 @@
 -- filepath: d:\luaasm\install.lua
 -- LuaASM Installer for ComputerCraft
--- Downloads files from a Git server and sets up the LuaASM environment.
--- Uses config.lua for configuration settings
+-- Downloads files from a Forgejo Git server and sets up the LuaASM environment.
 
--- Load configuration
-local function loadConfig()
-    -- Default configuration
-    local config = {
-        GIT_SERVER = "https://git.carsoncoder.com",
-        REPO = "charlie-san/LuaASM",
-        BRANCH = "main",
-        FILES = {
-            "interp.lua",
-            "debugger.lua",
-            "tui.lua",
-            "main.masm",
-            "root/stdio/print.masm",
-            "README.md",
-            "mni-instructions.md",
-            "v2instructions.md"
-        }
-    }
-    
-    -- Try to load from config file if it exists
-    if fs.exists("config.lua") then
-        local ok, userConfig = pcall(dofile, "config.lua")
-        if ok and type(userConfig) == "table" then
-            -- Merge configs, with user config taking precedence
-            for k, v in pairs(userConfig) do
-                config[k] = v
-            end
-        end
-    end
-    
-    return config
-end
+-- Configuration
+local GIT_SERVER = "https://git.carsoncoder.com"
+local REPO = "charlie-san/LuaASM"
+local BRANCH = "main"
+local FILES = {
+    "interp.lua",
+    "debugger.lua",
+    "tui.lua",
+    "main.masm",
+    "root/stdio/print.masm",
+    "README.md",
+    "v2instructions.md"
+}
 
 -- Helper function to download a file
 local function downloadFile(url, path)
-    print("Downloading: " .. url)
-    
     local response, err = http.get(url)
     if not response then
         error("Failed to download " .. url .. ": " .. err)
@@ -64,16 +42,10 @@ end
 
 -- Main installation function
 local function install()
-    local config = loadConfig()
     print("Starting LuaASM installation...")
-    print("Using Git server: " .. config.GIT_SERVER)
-    print("Repository: " .. config.REPO)
-    print("Branch: " .. config.BRANCH)
-    print("Files to download: " .. #config.FILES)
-    
-    for _, file in ipairs(config.FILES) do
-        local url = string.format("%s/%s/raw/branch/%s/%s", 
-            config.GIT_SERVER, config.REPO, config.BRANCH, file)
+
+    for _, file in ipairs(FILES) do
+        local url = string.format("%s/%s/raw/branch/%s/%s", GIT_SERVER, REPO, BRANCH, file)
         downloadFile(url, file)
     end
 
