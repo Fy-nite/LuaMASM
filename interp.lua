@@ -585,15 +585,16 @@ local function processIncludes(rootFolder, localFolder, code)
     return processedCode
 end
 
--- Modify init() to process includes
+-- Modify init() to process includes and handle the ANSI TUI flag
 local function init(filename, options)
     if not filename then
         term.write("Usage: interp <filename> [options]\n")
         term.write("Options:\n")
-        term.write("  -d, --debug    Start in debug mode with TUI\n")
-        term.write("  -D, --debug-cli Start in debug mode without TUI\n")
-        term.write("  -s, --step     Start in step mode\n")
-        term.write("  --root=<folder> Set the root folder for structured includes\n")
+        term.write("  -d, --debug           Start in debug mode with text-based TUI\n")
+        term.write("  -D, --debug-cli       Start in debug mode without TUI\n")
+        term.write("  -A, --ansi-debug-tui  Start in debug mode with ANSI TUI (requires terminal support)\n")
+        term.write("  -s, --step            Start in step mode\n")
+        term.write("  --root=<folder>       Set the root folder for structured includes\n")
         return
     end
     
@@ -626,7 +627,11 @@ local function init(filename, options)
     
     -- Handle options
     options = options or {}
-    if options.debug then
+    
+    -- Set global ANSI mode flag based on options
+    _G.ANSI_MODE = options.ansiDebugTui
+    
+    if options.debug or options.ansiDebugTui then
         machine.debugMode = true
         machine.autoTUI = true
     elseif options.debugCli then
@@ -644,10 +649,28 @@ end
 local function main(args)
     local filename = args[1]
     local options = {
-        debug = args[2] == "-d" or args[2] == "--debug",
-        debugCli = args[2] == "-D" or args[2] == "--debug-cli",
-        step = args[2] == "-s" or args[2] == "--step"
+        debug = false,
+        debugCli = false,
+        ansiDebugTui = false,
+        step = false
     }
+    
+    -- Process command line arguments
+    for i = 2, #args do
+        local arg = args[i]
+        if arg == "-d" or arg == "--debug" then
+            options.debug = true
+        elseif arg == "-D" or arg == "--debug-cli" then
+            options.debugCli = true
+        elseif arg == "-A" or arg == "--ansi-debug-tui" then
+            options.ansiDebugTui = true
+        elseif arg == "-s" or arg == "--step" then
+            options.step = true
+        elseif arg:match("^--(.+)=(.+)$") then
+            -- This is a keyed option, already handled in init()
+        end
+    end
+    
     init(filename, options)
 end
 
