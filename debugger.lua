@@ -137,6 +137,30 @@ function Debugger:processCommand(cmd, arg)
             self.tuiMode = true
             self.tui:handleInput()
             return true
+        elseif arg == "ansi" and not self.tuiMode then
+            -- Enable ANSI mode and start TUI
+            local ok, TUI = pcall(require, "tui")
+            if not ok then
+                term.write("Error loading TUI module: " .. tostring(TUI) .. "\n")
+                return true
+            end
+            _G.ANSI_MODE = true  -- Enable ANSI mode globally
+            self.tui = TUI.new(self.machine, self)
+            self.tuiMode = true
+            self.tui:handleInput()
+            return true
+        elseif arg == "text" and not self.tuiMode then
+            -- Ensure text mode and start TUI
+            local ok, TUI = pcall(require, "tui")
+            if not ok then
+                term.write("Error loading TUI module: " .. tostring(TUI) .. "\n")
+                return true
+            end
+            _G.ANSI_MODE = false  -- Disable ANSI mode globally
+            self.tui = TUI.new(self.machine, self)
+            self.tuiMode = true
+            self.tui:handleInput()
+            return true
         elseif arg == "stop" and self.tuiMode then
             if self.tui then
                 self.tui:clear()
