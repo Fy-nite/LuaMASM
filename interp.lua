@@ -37,6 +37,7 @@ function RegisterMachine.new(numRegisters)
         self.memory[i] = 0
     end
     self.labels = {}
+    self.mainLabelLine = nil -- Store the line number for 'main'
     self.callStack = {}
     self.currentCode = {}
     self.debugMode = false
@@ -355,18 +356,18 @@ end
 -- Execution control
 function RegisterMachine:scanLabels(code)
     self.labels = {}  -- Reset labels
-    self.mainLabel = nil  -- Track the position of the 'main' label
+    self.mainLabelLine = nil  -- Reset main label line number
     for i, line in ipairs(code) do
         local parts = {}
         for word in string.gmatch(line, "%S+") do
             table.insert(parts, word)
         end
-        
-        if string.upper(parts[1]) == "LBL" then
-            local label = string.gsub(parts[2], ":", "")
+
+        if #parts >= 2 and string.upper(parts[1]) == "LBL" then
+            local label = string.gsub(parts[2], ":", "") -- Remove potential colon
             self.labels[label] = i
             if label == "main" then
-                self.mainLabel = i
+                self.mainLabelLine = i -- Store the line number of the main label
             end
             if self.debugMode then
                 print(string.format("Found label: %s at line %d", label, i))
@@ -378,43 +379,44 @@ end
 function RegisterMachine:execute(code)
     self.currentCode = code
     self:scanLabels(code)
-    
+
     -- Start execution from the 'main' label if it exists
-    if self.mainLabel then
-        self.RIP = self.mainLabel - 1
-        print(string.format("Starting execution at 'main' label (line %d)", self.mainLabel))  -- Debugging log
+    if self.mainLabelLine then
+        self.RIP = self.mainLabelLine -- Start execution *at* the main label line itself
+        print(string.format("Starting execution at 'main' label (line %d)", self.mainLabelLine))
     else
-        self.RIP = 0
-        print("No 'main' label found. Starting execution from the beginning.")  -- Debugging log
+        -- Error out if main label is missing
+        error("Execution failed: Entry point label 'main' not found in code.")
+        return -- Stop execution
     end
-    
-    -- If in debug mode, initialize debugger
-    if self.debugMode then
-        local ok, debugger = pcall(require, "debugger")  -- Fix require path
-        if not ok then
-            term.write("Error loading debugger module: " .. debugger .. "\n")
-            return
+
+    -- ... rest of debug/normal execution loop ...
+    -- Normal execution loop needs slight adjustment for RIP starting point
+    while self.RIP <= #code do -- Use <= to include the last line
+        local line = code[self.RIP] -- Get current line using RIP directly
+        if not line then break end -- Stop if RIP goes beyond code lines
+
+        -- Skip comments/empty lines *before* executing
+        if string.match(line, "^%s*;") or string.match(line, "^%s*$") then
+             self.RIP = self.RIP + 1 -- Advance RIP if skipping
+             goto continue -- Use goto to skip execution logic for this line
         end
-        local dbg = debugger.new(self)
-        dbg:start()
-        return
-    end
-    
-    -- Normal execution
-    while self.RIP < #code do
-        local line = code[self.RIP + 1]
-        if not line or string.match(line, "^%s*;") then
-            self.RIP = self.RIP + 1
-            goto continue
-        end
-        
+
         if self.debugMode then
             print(string.format("Executing line %d: %s", self.RIP, line))
         end
-        
-        self:executeInstruction(line)
-        
-        ::continue::
+
+        -- Store RIP before potential modification by jumps/calls
+        local currentRIP = self.RIP
+        local continueExecution = self:executeInstruction(line)
+        if not continueExecution then break end -- Stop if HLT or error
+
+        -- Only advance RIP if it wasn't modified by a jump/call/ret
+        if self.RIP == currentRIP then
+            self.RIP = self.RIP + 1
+        end
+
+        ::continue:: -- Label for goto
     end
 end
 
@@ -492,16 +494,28 @@ function RegisterMachine:executeInstruction(line)
 
     if self.ops[op] then
         local method = string.lower(op)
-        if self[method] then
-            self[method](self, table.unpack(parts, 2))
+        -- Special handling for jump/call/ret which modify RIP themselves
+        if op == "JMP" or op == "JE" or op == "JNE" or op == "JG" or op == "JL" or op == "JGE" or op == "JLE" or op == "CALL" or op == "RET" then
+             if self[method] then
+                 self[method](self, table.unpack(parts, 2))
+             else
+                 error("Unknown instruction method: " .. method)
+             end
+             -- Don't advance RIP here, the instruction handles it
+        else
+            -- Regular instruction execution
+            if self[method] then
+                self[method](self, table.unpack(parts, 2))
+            else
+                 error("Unknown instruction method: " .. method)
+            end
+            -- Don't advance RIP here, execute loop handles it
         end
+    else
+        error("Unknown operation: " .. op)
     end
-    
-    if op ~= "JMP" and op ~= "RET" then
-        self.RIP = self.RIP + 1
-    end
-    
-    return true
+
+    return true -- Signal to continue execution
 end
 
 function RegisterMachine:registerMNI(class, name, func)
