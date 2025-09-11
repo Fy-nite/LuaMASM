@@ -856,7 +856,7 @@ end
 local function main(args)
     if not args or not args[1] then
         print("Usage: lua interp.lua <filename> [options]")
-        os.exit(1)
+        return
     end
     
     local filename = args[1]
