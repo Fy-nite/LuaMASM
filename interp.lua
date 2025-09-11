@@ -147,8 +147,7 @@ function RegisterMachine.new(numRegisters)
         XOR = true, NOT = true, SHL = true, SHR = true,
         NEG = true, RET = true, STRING = true, LBL = true,
         MOVADDR = true, MOVTO = true, ENTER = true, LEAVE = true,
-        FILL = true, COPY = true, CMP_MEM = true, OUT = true,
-        MOVZX = true, MOVSX = true
+        FILL = true, COPY = true, CMP_MEM = true, OUT = true
     }
     
     self.stateManager = State.new()
@@ -261,27 +260,6 @@ function RegisterMachine:mov(dest, src)
         -- Register or immediate value
         self[dest] = tonumber(src) or self[src]
     end
-end
-
--- MOVZX: Move with Zero Extend
-function RegisterMachine:movzx(dest, src)
-    local value = tonumber(self[src]) or tonumber(src) or 0
-    -- Zero-extend from BYTE/WORD/DWORD to QWORD
-    self[dest] = value & 0xFFFFFFFFFFFFFFFF
-end
-
--- MOVSX: Move with Sign Extend
-function RegisterMachine:movsx(dest, src)
-    local value = tonumber(self[src]) or tonumber(src) or 0
-    -- Detect size by value range (simulate sign extension)
-    if value >= -128 and value <= 127 then -- BYTE
-        if value >= 0x80 then value = value - 0x100 end
-    elseif value >= -32768 and value <= 32767 then -- WORD
-        if value >= 0x8000 then value = value - 0x10000 end
-    elseif value >= -2147483648 and value <= 2147483647 then -- DWORD
-        if value >= 0x80000000 then value = value - 0x100000000 end
-    end
-    self[dest] = value
 end
 
 function RegisterMachine:call(func, ...)
