@@ -1,3 +1,6 @@
+
+
+
 local term = {}
 function term.write(text)
     io.write(text)
@@ -7,6 +10,90 @@ function fs.exists(path)
     return io.open(path, "r") ~= nil
 end
 local bit32 = {}
+
+local State = {}
+State.__index = State
+
+function State.new()
+    local self = setmetatable({}, State)
+    self.global = {}
+    self.scopes = {}
+    return self
+end
+
+function State:enterScope(scopeName)
+    table.insert(self.scopes, {name = scopeName, vars = {}})
+end
+
+function State:leaveScope()
+    table.remove(self.scopes)
+end
+
+function State:declare(name, typeStr, initial)
+    local var = {type = typeStr, value = initial or 0}
+    if #self.scopes > 0 then
+        local scope = self.scopes[#self.scopes]
+        if scope.vars[name] then error("Duplicate STATE variable in scope: "..name) end
+        scope.vars[name] = var
+    else
+        if self.global[name] then error("Duplicate global STATE variable: "..name) end
+        self.global[name] = var
+    end
+end
+
+function State:get(name)
+    for i = #self.scopes, 1, -1 do
+        local scope = self.scopes[i]
+        if scope.vars[name] then return scope.vars[name] end
+    end
+    return self.global[name]
+end
+
+function State:set(name, value)
+    for i = #self.scopes, 1, -1 do
+        local scope = self.scopes[i]
+        if scope.vars[name] then scope.vars[name].value = value; return end
+    end
+    if self.global[name] then self.global[name].value = value; return end
+    error("STATE variable not found: "..name)
+end
+
+-- Macro management (baked in)
+local Macro = {}
+Macro.__index = Macro
+
+function Macro.new()
+    local self = setmetatable({}, Macro)
+    self.macros = {}
+    self.expansionCount = {}
+    return self
+end
+
+function Macro:define(name, params, body)
+    if self.macros[name] then error("Duplicate macro: "..name) end
+    self.macros[name] = {params = params, body = body}
+    self.expansionCount[name] = 0
+end
+
+function Macro:expand(name, args)
+    local macro = self.macros[name]
+    if not macro then error("Macro not found: "..name) end
+    if #args ~= #macro.params then error("Macro argument count mismatch for "..name) end
+    self.expansionCount[name] = self.expansionCount[name] + 1
+    local uniq = self.expansionCount[name]
+    local expanded = {}
+    for _, line in ipairs(macro.body) do
+        local l = line
+        for i, param in ipairs(macro.params) do
+            l = l:gsub(param, args[i])
+        end
+        l = l:gsub("@@(%w+)", function(lbl)
+            return string.format("..@%s@%d@%s", name, uniq, lbl)
+        end)
+        table.insert(expanded, l)
+    end
+    return expanded
+end
 
 local RegisterMachine = {}
 RegisterMachine.__index = RegisterMachine
@@ -60,8 +147,12 @@ function RegisterMachine.new(numRegisters)
         XOR = true, NOT = true, SHL = true, SHR = true,
         NEG = true, RET = true, STRING = true, LBL = true,
         MOVADDR = true, MOVTO = true, ENTER = true, LEAVE = true,
-        FILL = true, COPY = true, CMP_MEM = true, OUT = true
+        FILL = true, COPY = true, CMP_MEM = true, OUT = true,
+        MOVZX = true, MOVSX = true
     }
+    
+    self.stateManager = State.new()
+    self.macroManager = Macro.new()
     
     return self
 end
@@ -90,6 +181,9 @@ function RegisterMachine:printc(reg)
     term.write(string.char(value))
 end
 
+-- =====================
+-- Arithmetic Operations
+-- =====================
 function RegisterMachine:inc(reg)
     self[reg] = self[reg] + 1
 end
@@ -110,15 +204,9 @@ function RegisterMachine:sub(dest, src)
     self[dest] = self[dest] - (tonumber(src) or self[src])
 end
 
-function RegisterMachine:ror(dest, src)
-    -- OpenComputers bit32 API
-    self[dest] = bit32.rrotate(self[dest], tonumber(src) or self[src])
-end
-
-function RegisterMachine:rol(dest, src)
-    self[dest] = bit32.lrotate(self[dest], tonumber(src) or self[src])
-end
-
+-- =====================
+-- Bitwise Operations
+-- =====================
 function RegisterMachine:and_(dest, src)
     self[dest] = bit32.band(self[dest], (tonumber(src) or self[src]))
 end
@@ -137,6 +225,63 @@ end
 
 function RegisterMachine:shl(dest, src)
     self[dest] = bit32.lshift(self[dest], tonumber(src) or self[src])
+end
+
+function RegisterMachine:shr(dest, src)
+    self[dest] = bit32.rshift(self[dest], tonumber(src) or self[src])
+end
+
+function RegisterMachine:rol(dest, src)
+    self[dest] = bit32.lrotate(self[dest], tonumber(src) or self[src])
+end
+
+function RegisterMachine:ror(dest, src)
+    self[dest] = bit32.rrotate(self[dest], tonumber(src) or self[src])
+end
+
+-- =====================
+-- Data Movement
+-- =====================
+function RegisterMachine:mov(dest, src)
+    if string.sub(dest, 1, 1) == '$' then
+        -- Memory addressing
+        local address = tonumber(string.sub(dest, 2))
+        local value = tonumber(src) or self[src]
+        self.memory[address] = value
+    elseif string.sub(src, 1, 1) == '$' then
+        -- Load from memory
+        local address = tonumber(string.sub(src, 2))
+        if address then
+            self[dest] = self.memory[address]
+        else
+            local reg = string.sub(src, 2)
+            self[dest] = self.memory[self[reg]]
+        end
+    else
+        -- Register or immediate value
+        self[dest] = tonumber(src) or self[src]
+    end
+end
+
+-- MOVZX: Move with Zero Extend
+function RegisterMachine:movzx(dest, src)
+    local value = tonumber(self[src]) or tonumber(src) or 0
+    -- Zero-extend from BYTE/WORD/DWORD to QWORD
+    self[dest] = value & 0xFFFFFFFFFFFFFFFF
+end
+
+-- MOVSX: Move with Sign Extend
+function RegisterMachine:movsx(dest, src)
+    local value = tonumber(self[src]) or tonumber(src) or 0
+    -- Detect size by value range (simulate sign extension)
+    if value >= -128 and value <= 127 then -- BYTE
+        if value >= 0x80 then value = value - 0x100 end
+    elseif value >= -32768 and value <= 32767 then -- WORD
+        if value >= 0x8000 then value = value - 0x10000 end
+    elseif value >= -2147483648 and value <= 2147483647 then -- DWORD
+        if value >= 0x80000000 then value = value - 0x100000000 end
+    end
+    self[dest] = value
 end
 
 function RegisterMachine:call(func, ...)
@@ -492,6 +637,40 @@ function RegisterMachine:executeInstruction(line)
         return true
     end
 
+    -- Helper to resolve operand (register, immediate, or STATE variable)
+    local function resolveOperand(self, op)
+        if tonumber(op) then return tonumber(op) end
+        local stateVar = self.stateManager:get(op)
+        if stateVar then return stateVar.value end
+        return self[op]
+    end
+    -- Patch all relevant RegisterMachine methods to use resolveOperand for operands
+    -- Example for mov:
+    function RegisterMachine:mov(dest, src)
+        if string.sub(dest, 1, 1) == '$' then
+            -- Memory addressing
+            local address = tonumber(string.sub(dest, 2))
+            local value = resolveOperand(self, src)
+            self.memory[address] = value
+        elseif string.sub(src, 1, 1) == '$' then
+            -- Load from memory
+            local address = tonumber(string.sub(src, 2))
+            if address then
+                self[dest] = self.memory[address]
+            else
+                local reg = string.sub(src, 2)
+                self[dest] = self.memory[self[reg]]
+            end
+        else
+            local value = resolveOperand(self, src)
+            if self.stateManager:get(dest) then
+                self.stateManager:set(dest, value)
+            else
+                self[dest] = value
+            end
+        end
+    end
+
     if self.ops[op] then
         local method = string.lower(op)
         -- Special handling for jump/call/ret which modify RIP themselves
@@ -656,11 +835,52 @@ local function init(filename, options)
         machine.stepMode = true
     end
     
+    -- Preprocess macros and STATE declarations
+    local macros = machine.macroManager
+    local state = machine.stateManager
+    local preprocessed = {}
+    local inMacro = false
+    local macroName, macroParams, macroBody
+    for _, line in ipairs(code) do
+        local trimmed = line:match("^%s*(.-)%s*$")
+        if trimmed:match("^MACRO ") then
+            inMacro = true
+            macroName, macroParams = trimmed:match("MACRO%s+(%w+)%s*(.*)")
+            macroParams = macroParams and macroParams:gsub(",", " ") or ""
+            local params = {}
+            for p in macroParams:gmatch("%S+") do table.insert(params, p) end
+            macroBody = {}
+        elseif inMacro and trimmed:match("^ENDMACRO") then
+            inMacro = false
+            macros:define(macroName, macroParams and macroParams:gmatch("%S+") and macroParams:split(" ") or {}, macroBody)
+        elseif inMacro then
+            table.insert(macroBody, trimmed)
+        elseif trimmed:match("^STATE ") then
+            local name, typeStr, initial = trimmed:match("STATE%s+(%w+)%s+<([%w_]+)>%s*([%w%.-]*)")
+            state:declare(name, typeStr, tonumber(initial))
+        elseif macros.macros[trimmed:match("^(%w+)") or ""] then
+            -- Macro invocation
+            local mname, argstr = trimmed:match("^(%w+)%s*(.*)")
+            local args = {}
+            for a in (argstr or ""):gmatch("%S+") do table.insert(args, a) end
+            local expanded = macros:expand(mname, args)
+            for _, l in ipairs(expanded) do table.insert(preprocessed, l) end
+        else
+            table.insert(preprocessed, line)
+        end
+    end
+    code = preprocessed
+
     machine:execute(code)
 end
 
 -- Main program entry point
 local function main(args)
+    if not args or not args[1] then
+        print("Usage: lua interp.lua <filename> [options]")
+        os.exit(1)
+    end
+    
     local filename = args[1]
     local options = {
         debug = false,

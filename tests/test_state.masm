@@ -1,0 +1,10 @@
+; Test STATE variable usage
+STATE counter <QWORD> 42
+STATE flag <BYTE> 1
+
+LBL main
+    MOV R1 counter
+    MOV R2 flag
+    HLT
+; EXPECT R1 42
+; EXPECT R2 1

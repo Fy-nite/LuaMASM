@@ -1,0 +1,14 @@
+; Test macro expansion and unique labels
+MACRO inc_twice reg
+    INC reg
+    INC reg
+ENDMACRO
+
+STATE result <QWORD> 0
+
+LBL main
+    MOV R1 10
+    inc_twice R1
+    MOV result R1
+    HLT
+; EXPECT result 12
