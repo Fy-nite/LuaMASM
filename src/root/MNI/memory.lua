@@ -7,5 +7,5 @@ return function(machine)
         machine[addrReg] = 0
         machine.RFLAGS = 1 -- Error
     end)
-    -- Add more memory management operations as needed
+    
 end

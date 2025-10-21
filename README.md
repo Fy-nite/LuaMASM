@@ -1,6 +1,6 @@
-# LuaASM Interpreter
+# LuaMASM Runtime
 
-LuaASM is a lightweight assembly-like language interpreter written in Lua. It supports a variety of instructions for arithmetic, flow control, stack operations, I/O, and more. LuaASM is designed to be extensible and includes features like debugging, TUI (Text User Interface), and MNI (Micro Native Interface) for advanced functionality.
+LuaMASM Runtime is a lightweight interpreter for the MicroASM assembly-like language, written in Lua. It enables execution of MicroASM programs on any Lua 5.4+ compatible platform, including Minecraft mods such as OpenComputers and ComputerCraft/CCTweaked, as well as standard PC environments (Windows, Mac, Linux). The runtime supports a wide range of instructions for arithmetic, flow control, stack operations, I/O, and more, with extensible features like debugging, TUI (Text User Interface), and MNI (Micro Native Interface) for advanced functionality.
 
 ## Features
 
@@ -12,42 +12,57 @@ LuaASM is a lightweight assembly-like language interpreter written in Lua. It su
 - **Debugger**: Step through code, inspect registers, memory, and stack.
 - **TUI Mode**: Visualize code execution, registers, and stack in a terminal-based UI.
 - **MNI Support**: Extend functionality with native system calls or external libraries.
+- **Cross-Platform**: Runs on Lua-based machines in Minecraft (OpenComputers, ComputerCraft/CCTweaked) and standard PCs.
+
+## Supported Platforms
+
+- **Minecraft Mods**:
+  - OpenComputers mod
+  - ComputerCraft/CCTweaked mod
+- **PC Platforms**:
+  - Windows
+  - macOS
+  - Linux
+
+Requires Lua 5.4 or later on the target platform.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Lua 5.4 or later installed on your system.
-- A terminal or command prompt to run the interpreter.
+- Lua 5.4 or later installed on your system or mod environment.
+- A terminal or command prompt to run the interpreter (for PC platforms).
 
 ### Installation
 
 1. Clone the repository or copy the files into a directory.
 2. Ensure the following directory structure:
-   ```
-   LuaASM\
-   ├── interp.lua
-   ├── debug.lua
-   ├── tui.lua
-   ├── root\
-   │   └── stdio\
-   │       └── print.masm
-  
-   ├── main.masm
-   └── README.md
-   ```
+
+```text
+MicroASM\
+├── interp.lua
+├── debug.lua
+├── tui.lua
+├── root\
+│   └── stdio\
+│       └── print.masm
+├── main.masm
+└── README.md
+```
 
 ### Running the Interpreter
 
-To execute a LuaASM program, run the following command:
+To execute a MicroASM program, run the following command:
 
 ```bash
 lua interp.lua main.masm
 ```
 
+For Minecraft mods, load the Lua files into your in-game computer and execute similarly, adapting to the mod's Lua environment.
+
 ### Example Program
 
-Here’s an example program (`main.masm`) that outputs "hello world":
+Here's an example program (`main.masm`) that outputs "hello world":
 
 ```asm
 #include "stdio.print"
@@ -85,7 +100,7 @@ tui start
 
 ## Instruction Set
 
-For a complete list of supported instructions, see [Instruction Set Documentation](v2instructions.md).
+For a complete list of supported instructions, see [Instruction Set Documentation](docs/MicroV2.md).
 
 ## Directory Structure
 
